@@ -11,7 +11,9 @@ weatherForm.addEventListener("submit", async (event) => {
   if (city) {
     try {
       const weatherData = await getWeatherData(city);
+      const forecastData = await getForecastData(city);
       displayWeatherInfo(weatherData);
+      displayForecastInfo(forecastData);
     } catch (error) {
       console.error(error);
       displayError(error);
@@ -23,6 +25,18 @@ weatherForm.addEventListener("submit", async (event) => {
 
 async function getWeatherData(city) {
   const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+
+  const response = await fetch(apiUrl);
+
+  if (!response.ok) {
+    throw new Error("Could not fetch weather data 😡");
+  }
+
+  return await response.json();
+}
+
+async function getForecastData(city) {
+  const apiUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric&cnt=8`;
 
   const response = await fetch(apiUrl);
 
@@ -47,11 +61,50 @@ function createColumn(title, value) {
   return col;
 }
 
+// Row for forecastData
+function createRow(time, temp, wind, rain) {
+  const row = document.createElement("div");
+  const timeDisplay = document.createElement("span");
+  const tempDisplay = document.createElement("p");
+  const windDisplay = document.createElement("p");
+  const rainDisplay = document.createElement("p");
+
+  timeDisplay.textContent = time;
+  tempDisplay.textContent = temp;
+  windDisplay.textContent = wind;
+  rainDisplay.textContent = rain;
+
+  row.classList.add("row");
+
+  row.appendChild(timeDisplay);
+  row.appendChild(tempDisplay);
+  row.appendChild(windDisplay);
+  row.appendChild(rainDisplay);
+  return row;
+}
+
+function displayForecastInfo(data) {
+  const row = document.createElement("div");
+  row.classList.add("rows");
+
+  data.list.forEach((entry) => {
+    const time = entry.dt_txt.slice(11, 16);
+    const temp = `${entry.main.temp.toFixed(1)}°C`;
+    const wind = `${(entry.wind.speed * 3.6).toFixed(1)} km/h`;
+    const rain = `${Math.round(entry.pop * 100)}%`;
+
+    row.appendChild(createRow(time, temp, wind, rain));
+  });
+
+  card.appendChild(row);
+}
+
 function displayWeatherInfo(data) {
   const {
     name: city,
     main: { temp, humidity },
     wind,
+    rain,
     weather: [{ description, id }],
   } = data;
 
@@ -60,6 +113,13 @@ function displayWeatherInfo(data) {
   card.textContent = "";
   card.style.display = "flex";
 
+  let rainMm = 0;
+
+  if (data.rain) {
+    rainMm = data.rain["1h"];
+  }
+
+  // constants
   const windKmh = wind.speed * 3.6; // API gives meters per second. 1 m/s equals 3.6 km/h so multiply by 3.6
   const cols = document.createElement("div");
   const cityDisplay = document.createElement("h1");
@@ -71,7 +131,9 @@ function displayWeatherInfo(data) {
   // column Temperature
   cols.appendChild(createColumn("Temperature", `${temp.toFixed(1)}°C`));
   // column Wind
-  cols.appendChild(createColumn("Wind", `${windKmh.toFixed(1)} km/h`));
+  cols.appendChild(createColumn("Wind", `${windKmh.toFixed(1)} km/h`)); // toFixed(1) rounds to one decimal
+  // column Rain
+  cols.appendChild(createColumn("Rain", `${rainMm} mm`));
 
   cols.classList.add("cols");
   card.appendChild(cols);
